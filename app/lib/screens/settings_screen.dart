@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -53,16 +54,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
       final bytes = Uint8List.fromList(utf8.encode(jsonStr));
       final fecha = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Guardar copia de seguridad',
-        fileName: 'plan_entrenamiento_$fecha.json',
+
+      // file_saver funciona igual en web (descarga), Android y escritorio.
+      await FileSaver.instance.saveFile(
+        name: 'plan_entrenamiento_$fecha',
         bytes: bytes,
+        ext: 'json',
+        mimeType: MimeType.json,
       );
-      if (kIsWeb) {
-        _snack('Copia de seguridad descargada');
-      } else if (path != null) {
-        _snack('Copia de seguridad guardada');
-      }
+      _snack(kIsWeb
+          ? 'Copia de seguridad descargada'
+          : 'Copia de seguridad guardada');
     } catch (e) {
       _snack('No se pudo exportar: $e');
     }

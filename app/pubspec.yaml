@@ -49,8 +49,10 @@ dependencies:
   fl_chart: ^0.69.2
   # Formato de fechas / locale es
   intl: ^0.20.2
-  # Exportar / importar copia de seguridad (elegir y guardar fichero)
+  # Importar copia de seguridad (elegir fichero; pickFiles funciona en web/movil/escritorio)
   file_picker: ^8.1.6
+  # Exportar copia: guarda/descarga el fichero en web, Android y escritorio
+  file_saver: ^0.2.14
 
 dev_dependencies:
   flutter_test:
