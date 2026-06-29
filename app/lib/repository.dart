@@ -15,6 +15,32 @@ class WorkoutRepository {
     return rows.map(WorkoutDay.fromMap).toList();
   }
 
+  /// Marca un dia como de entrenamiento (true) o descanso (false).
+  Future<void> setDayActive(int dayId, bool active) async {
+    final db = await _db;
+    await db.update('days', {'active': active ? 1 : 0},
+        where: 'id = ?', whereArgs: [dayId]);
+  }
+
+  // ---- Preferencias (settings clave/valor) ----
+
+  Future<String?> getSetting(String key) async {
+    final db = await _db;
+    final rows = await db
+        .query('settings', where: 'key = ?', whereArgs: [key], limit: 1);
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
+  Future<void> setSetting(String key, String value) async {
+    final db = await _db;
+    await db.insert(
+      'settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   Future<List<Exercise>> getExercises(int dayId) async {
     final db = await _db;
     final rows = await db.query('exercises',

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../repository.dart';
 import 'day_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,11 +28,27 @@ class _HomeScreenState extends State<HomeScreen> {
     _days = repo.getDays();
   }
 
+  Future<void> _openSettings() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+    if (changed == true && mounted) {
+      setState(_load);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Plan de Entrenamiento'),
+        actions: [
+          IconButton(
+            tooltip: 'Configuracion',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: _openSettings,
+          ),
+        ],
       ),
       body: FutureBuilder<List<WorkoutDay>>(
         future: _days,
@@ -67,18 +85,38 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final hoy = DateFormat("EEEE, d 'de' MMMM", 'es_ES').format(DateTime.now());
     return Card(
       color: scheme.primaryContainer,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            Icon(Icons.fitness_center, color: scheme.onPrimaryContainer),
-            const SizedBox(width: 12),
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: scheme.primary,
+              foregroundColor: scheme.onPrimary,
+              child: const Icon(Icons.fitness_center),
+            ),
+            const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                'Elige el dia que vas a entrenar y registra tus series.',
-                style: TextStyle(color: scheme.onPrimaryContainer),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _capitalize(hoy),
+                    style: TextStyle(
+                      color: scheme.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Elige el dia y registra tus series.',
+                    style: TextStyle(color: scheme.onPrimaryContainer),
+                  ),
+                ],
               ),
             ),
           ],
@@ -86,6 +124,9 @@ class _Header extends StatelessWidget {
       ),
     );
   }
+
+  static String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
 class _DayCard extends StatelessWidget {
@@ -96,21 +137,49 @@ class _DayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isRest = !day.active;
+
+    final Color? cardColor = isToday
+        ? scheme.primaryContainer
+        : (isRest ? scheme.surfaceContainerLow : null);
+
+    final Color titleColor = isRest && !isToday
+        ? scheme.onSurfaceVariant
+        : scheme.onSurface;
+
     return Card(
-      color: isToday ? scheme.primaryContainer : null,
+      color: cardColor,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: isToday ? scheme.primary : null,
-          foregroundColor: isToday ? scheme.onPrimary : null,
-          child: Text(day.name.substring(0, 1)),
+          backgroundColor: isToday
+              ? scheme.primary
+              : (isRest ? scheme.surfaceContainerHighest : scheme.secondaryContainer),
+          foregroundColor: isToday
+              ? scheme.onPrimary
+              : (isRest ? scheme.onSurfaceVariant : scheme.onSecondaryContainer),
+          child: Icon(isRest ? Icons.bedtime_outlined : Icons.fitness_center),
         ),
-        title: Text(day.name,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        subtitle: isToday ? const Text('Hoy') : null,
+        title: Text(
+          day.name,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: titleColor,
+          ),
+        ),
+        subtitle: Text(
+          isToday
+              ? (isRest ? 'Hoy · Descanso' : 'Hoy · Entrenamiento')
+              : (isRest ? 'Descanso' : 'Entrenamiento'),
+          style: TextStyle(
+            color: isToday ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+            fontWeight: isToday ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.of(context).push(MaterialPageRoute(
+        onTap: () async {
+          await Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => DayScreen(day: day),
           ));
         },

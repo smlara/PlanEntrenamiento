@@ -17,7 +17,9 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   /// v2: los dias pasan de "DIA 1/2/3" a los 7 dias de la semana.
-  static const int _version = 2;
+  /// v3: se anade `days.active` (dia de entrenamiento si/no) y la tabla
+  /// `settings` (clave/valor) para preferencias como el modo de tema.
+  static const int _version = 3;
 
   Database? _db;
 
@@ -78,6 +80,7 @@ class AppDatabase {
     await db.execute('DROP TABLE IF EXISTS set_entries');
     await db.execute('DROP TABLE IF EXISTS exercises');
     await db.execute('DROP TABLE IF EXISTS days');
+    await db.execute('DROP TABLE IF EXISTS settings');
     await _onCreate(db, newVersion);
   }
 
@@ -86,7 +89,15 @@ class AppDatabase {
       CREATE TABLE days (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
-        position INTEGER NOT NULL
+        position INTEGER NOT NULL,
+        active INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    // Preferencias de la app (clave/valor): modo de tema, etc.
+    await db.execute('''
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
       )
     ''');
     await db.execute('''
@@ -126,7 +137,13 @@ class AppDatabase {
     var exId = 1;
     for (var d = 0; d < kSeedPlan.length; d++) {
       final day = kSeedPlan[d];
-      batch.insert('days', {'id': dayId, 'name': day.name, 'position': d});
+      // Por defecto, un dia es de entrenamiento si trae ejercicios en el plan.
+      batch.insert('days', {
+        'id': dayId,
+        'name': day.name,
+        'position': d,
+        'active': day.exercises.isNotEmpty ? 1 : 0,
+      });
       for (var e = 0; e < day.exercises.length; e++) {
         final ex = day.exercises[e];
         batch.insert('exercises', {

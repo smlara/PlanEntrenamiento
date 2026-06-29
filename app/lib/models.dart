@@ -5,15 +5,22 @@ library;
 
 class WorkoutDay {
   final int id;
-  final String name; // p.ej. "DIA 1"
+  final String name; // p.ej. "Lunes"
   final int position;
+  final bool active; // true = dia de entrenamiento; false = descanso
 
-  const WorkoutDay({required this.id, required this.name, required this.position});
+  const WorkoutDay({
+    required this.id,
+    required this.name,
+    required this.position,
+    this.active = true,
+  });
 
   factory WorkoutDay.fromMap(Map<String, Object?> m) => WorkoutDay(
         id: m['id'] as int,
         name: m['name'] as String,
         position: m['position'] as int,
+        active: (m['active'] as int? ?? 1) == 1,
       );
 }
 

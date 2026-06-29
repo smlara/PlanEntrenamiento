@@ -1,0 +1,165 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../models.dart';
+import '../repository.dart';
+import '../settings_controller.dart';
+
+/// Pantalla de configuracion: apariencia (tema) y dias de entrenamiento activos.
+///
+/// Devuelve `true` al cerrarse si se cambio algun dia activo, para que la home
+/// se recargue.
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  late Future<List<WorkoutDay>> _days;
+  bool _daysChanged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _days = context.read<WorkoutRepository>().getDays();
+  }
+
+  Future<void> _toggleDay(WorkoutDay day, bool active) async {
+    final repo = context.read<WorkoutRepository>();
+    await repo.setDayActive(day.id, active);
+    _daysChanged = true;
+    setState(() {
+      _days = repo.getDays();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.of(context).pop(_daysChanged);
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Configuracion')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            _SectionTitle('Apariencia', icon: Icons.palette_outlined),
+            const SizedBox(height: 8),
+            const _ThemeModeSelector(),
+            const SizedBox(height: 24),
+            _SectionTitle('Dias de entrenamiento',
+                icon: Icons.calendar_today_outlined),
+            const SizedBox(height: 4),
+            Text(
+              'Marca los dias de la semana en los que entrenas. Los demas se '
+              'mostraran como descanso.',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<List<WorkoutDay>>(
+              future: _days,
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final days = snap.data ?? [];
+                return Card(
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < days.length; i++) ...[
+                        if (i > 0) const Divider(height: 1),
+                        SwitchListTile(
+                          value: days[i].active,
+                          onChanged: (v) => _toggleDay(days[i], v),
+                          title: Text(days[i].name),
+                          secondary: Icon(
+                            days[i].active
+                                ? Icons.fitness_center
+                                : Icons.bedtime_outlined,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Selector de modo de tema: Sistema / Claro / Oscuro.
+class _ThemeModeSelector extends StatelessWidget {
+  const _ThemeModeSelector();
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<SettingsController>();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<ThemeMode>(
+            segments: const [
+              ButtonSegment(
+                value: ThemeMode.system,
+                label: Text('Sistema'),
+                icon: Icon(Icons.brightness_auto),
+              ),
+              ButtonSegment(
+                value: ThemeMode.light,
+                label: Text('Claro'),
+                icon: Icon(Icons.light_mode),
+              ),
+              ButtonSegment(
+                value: ThemeMode.dark,
+                label: Text('Oscuro'),
+                icon: Icon(Icons.dark_mode),
+              ),
+            ],
+            selected: {settings.themeMode},
+            onSelectionChanged: (s) =>
+                context.read<SettingsController>().setThemeMode(s.first),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text, {required this.icon});
+  final String text;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: scheme.primary),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: scheme.primary,
+          ),
+        ),
+      ],
+    );
+  }
+}
