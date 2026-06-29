@@ -1,0 +1,45 @@
+# === Plan de Entrenamiento ===
+# Nota: app/.gitignore (estándar Flutter) cubre los artefactos del proyecto
+# Flutter. Esto es la red de seguridad a nivel de repo.
+
+# Fuente original / datos personales
+PlanEntrenamiento.xlsx
+
+# === Sistema operativo ===
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# === Editores / IDE ===
+.vscode/
+*.code-workspace
+.idea/
+*.iml
+*.ipr
+*.iws
+*.swp
+*~
+
+# === Flutter / Dart (red de seguridad bajo app/) ===
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+**/doc/api/
+**/*.g.dart.bak
+.flutter-versions
+
+# Símbolos / ofuscación
+app.*.symbols
+app.*.map.json
+
+# === Misc ===
+*.log
+*.class
+*.pyc
