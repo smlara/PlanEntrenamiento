@@ -1,8 +1,9 @@
-/// Plan de entrenamiento inicial, importado desde PlanEntrenamiento.xlsx.
+/// Plan de entrenamiento inicial (datos por defecto).
 ///
-/// Hay un dia por cada dia de la semana (Lunes..Domingo). Las rutinas del Excel
-/// se asignan a: DIA 1 -> Lunes, DIA 2 -> Miercoles, DIA 3 -> Viernes.
-/// El resto de dias quedan vacios para que el usuario los rellene.
+/// Generado a partir de una copia de seguridad real del usuario
+/// (plan_entrenamiento_20260629_1940.json). Hay un dia por cada dia de la
+/// semana (Lunes..Domingo); las rutinas estan en Lunes, Miercoles y Viernes,
+/// y el resto quedan vacios (descanso).
 library;
 
 class SeedExercise {
@@ -19,18 +20,17 @@ class SeedDay {
   const SeedDay(this.name, this.exercises);
 }
 
-/// Rutina del antiguo "DIA 1".
 const List<SeedExercise> _rutinaLunes = [
   SeedExercise('15 Minutos Bici', null, null, isWarmup: true),
-  SeedExercise('MAQUINA PRESS PECHO + EXTENSION DE TRICEPS EN POLEA', 'M 2 o 4', '3X15+3X15'),
+  SeedExercise('EXTENSION DE TRICEPS EN POLEA', 'P6 / P11', '3X15'),
   SeedExercise('ELEVACION FRONTAL', 'P', '3X15'),
   SeedExercise('REMO GIRONDA', 'P 7 o 12', '3X15'),
   SeedExercise('CURL DE BICEPS', 'M 10', '3X15'),
   SeedExercise('ELEVACION LATERAL MANCUERNAS', null, '3X15'),
   SeedExercise('MAQUINA ABS', 'M 27', '3X20S'),
+  SeedExercise('MAQUINA PRESS PECHO', 'M 2 o 4', '3X15'),
 ];
 
-/// Rutina del antiguo "DIA 2".
 const List<SeedExercise> _rutinaMiercoles = [
   SeedExercise('15 Minutos Cinta', null, null, isWarmup: true),
   SeedExercise('PRENSA HORIZONTAL', 'M 22', '3X15'),
@@ -41,7 +41,6 @@ const List<SeedExercise> _rutinaMiercoles = [
   SeedExercise('PLANCHAS', null, '3 FALLO'),
 ];
 
-/// Rutina del antiguo "DIA 3".
 const List<SeedExercise> _rutinaViernes = [
   SeedExercise('15 Minutos Bici', null, null, isWarmup: true),
   SeedExercise('MAQUINA PRESS PECHO', 'M 2 o 4', '3X15'),

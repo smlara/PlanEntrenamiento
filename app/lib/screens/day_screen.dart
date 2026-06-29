@@ -15,7 +15,8 @@ class DayScreen extends StatefulWidget {
 
 class _DayScreenState extends State<DayScreen> {
   late WorkoutRepository _repo;
-  late Future<List<Exercise>> _exercises;
+  List<Exercise> _items = [];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -24,10 +25,22 @@ class _DayScreenState extends State<DayScreen> {
     _reload();
   }
 
-  void _reload() {
+  Future<void> _reload() async {
+    final items = await _repo.getExercises(widget.day.id);
+    if (!mounted) return;
     setState(() {
-      _exercises = _repo.getExercises(widget.day.id);
+      _items = items;
+      _loading = false;
     });
+  }
+
+  // onReorderItem ya entrega newIndex ajustado (tras quitar el elemento movido).
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    setState(() {
+      final item = _items.removeAt(oldIndex);
+      _items.insert(newIndex, item);
+    });
+    await _repo.reorderExercises(_items.map((e) => e.id).toList());
   }
 
   Future<void> _addExercise() async {
@@ -89,8 +102,7 @@ class _DayScreenState extends State<DayScreen> {
 
   /// Copia todos los ejercicios de este dia al dia que elija el usuario.
   Future<void> _copyExercisesToAnotherDay() async {
-    final exercises = await _exercises;
-    if (!mounted) return;
+    final exercises = _items;
     if (exercises.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Este dia no tiene ejercicios que copiar')),
@@ -152,29 +164,30 @@ class _DayScreenState extends State<DayScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Anadir ejercicio'),
       ),
-      body: FutureBuilder<List<Exercise>>(
-        future: _exercises,
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final exercises = snap.data ?? [];
-          if (exercises.isEmpty) {
-            return _EmptyDay(onAdd: _addExercise);
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
-            itemCount: exercises.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 4),
-            itemBuilder: (context, i) => _ExerciseTile(
-              exercise: exercises[i],
-              onDuplicate: () => _duplicateExercise(exercises[i]),
-              onEdit: () => _editExercise(exercises[i]),
-              onDelete: () => _deleteExercise(exercises[i]),
-            ),
-          );
-        },
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _items.isEmpty
+              ? _EmptyDay(onAdd: _addExercise)
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
+                  itemCount: _items.length,
+                  buildDefaultDragHandles: false,
+                  onReorderItem: _onReorder,
+                  itemBuilder: (context, i) {
+                    final ex = _items[i];
+                    return _ExerciseTile(
+                      key: ValueKey(ex.id),
+                      exercise: ex,
+                      dragHandle: ReorderableDragStartListener(
+                        index: i,
+                        child: const Icon(Icons.drag_handle),
+                      ),
+                      onDuplicate: () => _duplicateExercise(ex),
+                      onEdit: () => _editExercise(ex),
+                      onDelete: () => _deleteExercise(ex),
+                    );
+                  },
+                ),
     );
   }
 }
@@ -210,12 +223,15 @@ class _EmptyDay extends StatelessWidget {
 
 class _ExerciseTile extends StatelessWidget {
   const _ExerciseTile({
+    super.key,
     required this.exercise,
+    required this.dragHandle,
     required this.onDuplicate,
     required this.onEdit,
     required this.onDelete,
   });
   final Exercise exercise;
+  final Widget dragHandle;
   final VoidCallback onDuplicate;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -271,10 +287,16 @@ class _ExerciseTile extends StatelessWidget {
       return Card(
         color: scheme.surfaceContainerHighest,
         child: ListTile(
-          contentPadding: const EdgeInsets.only(left: 16, right: 4),
-          leading: Icon(Icons.directions_run, color: scheme.primary),
+          contentPadding: const EdgeInsets.only(left: 8, right: 4),
+          leading: dragHandle,
           title: Text(exercise.name),
-          subtitle: const Text('Calentamiento'),
+          subtitle: Row(
+            children: [
+              Icon(Icons.directions_run, size: 16, color: scheme.primary),
+              const SizedBox(width: 4),
+              const Text('Calentamiento'),
+            ],
+          ),
           trailing: _actions(scheme),
         ),
       );
@@ -289,7 +311,8 @@ class _ExerciseTile extends StatelessWidget {
 
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.only(left: 16, right: 4),
+        contentPadding: const EdgeInsets.only(left: 8, right: 4),
+        leading: dragHandle,
         title: Text(exercise.name,
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: chips.isEmpty

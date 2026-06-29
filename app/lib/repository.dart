@@ -100,6 +100,18 @@ class WorkoutRepository {
     );
   }
 
+  /// Reordena los ejercicios: guarda la posicion de cada id segun su orden
+  /// en la lista (0, 1, 2...).
+  Future<void> reorderExercises(List<int> orderedIds) async {
+    final db = await _db;
+    final batch = db.batch();
+    for (var i = 0; i < orderedIds.length; i++) {
+      batch.update('exercises', {'position': i},
+          where: 'id = ?', whereArgs: [orderedIds[i]]);
+    }
+    await batch.commit(noResult: true);
+  }
+
   /// Duplica un ejercicio dentro de su mismo dia (al final). No copia el
   /// historial de series; solo la "plantilla" (nombre, puesto, pauta...).
   Future<int> duplicateExercise(int id) async {

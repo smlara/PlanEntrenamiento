@@ -19,7 +19,8 @@ class AppDatabase {
   /// v2: los dias pasan de "DIA 1/2/3" a los 7 dias de la semana.
   /// v3: se anade `days.active` (dia de entrenamiento si/no) y la tabla
   /// `settings` (clave/valor) para preferencias como el modo de tema.
-  static const int _version = 3;
+  /// v4: nuevo plan por defecto (seed) tomado de la copia real del usuario.
+  static const int _version = 4;
 
   Database? _db;
 
