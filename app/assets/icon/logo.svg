@@ -4,17 +4,17 @@
       <stop offset="0" stop-color="#4CAF50"/>
       <stop offset="1" stop-color="#1B5E20"/>
     </linearGradient>
-    <radialGradient id="glow" cx="330" cy="300" r="640" gradientUnits="userSpaceOnUse">
+    <radialGradient id="glow" cx="330" cy="300" r="700" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#ffffff" stop-opacity="0.20"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
-  <circle cx="512" cy="475" r="330" fill="#ffffff" opacity="0.07"/>
+  <circle cx="512" cy="512" r="468" fill="#ffffff" opacity="0.07"/>
   <rect width="1024" height="1024" fill="url(#glow)"/>
 
-  <!-- Mancuerna horizontal, discos separados y limpios -->
-  <g fill="#ffffff">
+  <!-- Mancuerna horizontal, ampliada para llenar el cuadro -->
+  <g transform="translate(512 512) scale(1.42) translate(-512 -512)" fill="#ffffff">
     <rect x="224" y="464" width="28" height="96" rx="14"/>
     <rect x="772" y="464" width="28" height="96" rx="14"/>
     <rect x="264" y="414" width="54" height="196" rx="22"/>

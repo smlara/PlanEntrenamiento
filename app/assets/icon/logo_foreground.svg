@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Solo la mancuerna, centrada, para el foreground del icono adaptativo Android -->
-  <g transform="translate(512 512) scale(0.92) translate(-512 -512)" fill="#ffffff">
+  <!-- Solo la mancuerna, ampliada pero dentro de la zona segura del icono adaptativo -->
+  <g transform="translate(512 512) scale(1.18) translate(-512 -512)" fill="#ffffff">
     <rect x="224" y="464" width="28" height="96" rx="14"/>
     <rect x="772" y="464" width="28" height="96" rx="14"/>
     <rect x="264" y="414" width="54" height="196" rx="22"/>
