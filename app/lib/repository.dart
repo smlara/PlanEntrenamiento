@@ -61,6 +61,7 @@ class WorkoutRepository {
     String? puesto,
     String? pauta,
     bool isWarmup = false,
+    ExerciseKind kind = ExerciseKind.strength,
   }) async {
     final db = await _db;
     final maxRow = await db.rawQuery(
@@ -74,6 +75,7 @@ class WorkoutRepository {
       'pauta': (pauta != null && pauta.trim().isEmpty) ? null : pauta?.trim(),
       'is_warmup': isWarmup ? 1 : 0,
       'position': nextPos,
+      'kind': kind.dbValue,
     });
   }
 
@@ -83,6 +85,7 @@ class WorkoutRepository {
     String? puesto,
     String? pauta,
     bool isWarmup = false,
+    ExerciseKind kind = ExerciseKind.strength,
   }) async {
     final db = await _db;
     await db.update(
@@ -94,6 +97,7 @@ class WorkoutRepository {
         'pauta':
             (pauta != null && pauta.trim().isEmpty) ? null : pauta?.trim(),
         'is_warmup': isWarmup ? 1 : 0,
+        'kind': kind.dbValue,
       },
       where: 'id = ?',
       whereArgs: [id],
@@ -122,6 +126,7 @@ class WorkoutRepository {
       puesto: ex.puesto,
       pauta: ex.pauta,
       isWarmup: ex.isWarmup,
+      kind: ex.kind,
     );
   }
 
@@ -136,6 +141,7 @@ class WorkoutRepository {
         puesto: ex.puesto,
         pauta: ex.pauta,
         isWarmup: ex.isWarmup,
+        kind: ex.kind,
       );
     }
     return list.length;
@@ -220,7 +226,7 @@ class WorkoutRepository {
   Future<Map<String, Object?>> exportData() async {
     final db = await _db;
     return {
-      'version': 2,
+      'version': 3,
       'exported_at': DateTime.now().toIso8601String(),
       'days': await db.query('days'),
       'exercises': await db.query('exercises'),

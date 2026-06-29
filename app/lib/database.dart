@@ -10,6 +10,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
+import 'models.dart';
 import 'seed_data.dart';
 
 class AppDatabase {
@@ -20,7 +21,10 @@ class AppDatabase {
   /// v3: se anade `days.active` (dia de entrenamiento si/no) y la tabla
   /// `settings` (clave/valor) para preferencias como el modo de tema.
   /// v4: nuevo plan por defecto (seed) tomado de la copia real del usuario.
-  static const int _version = 4;
+  /// v5: ejercicios de cardio. `exercises.kind` (fuerza/bici/natacion/cinta) y
+  /// columnas de metricas en `set_entries` (duration_min, distance, level,
+  /// speed, incline, laps, style).
+  static const int _version = 5;
 
   Database? _db;
 
@@ -110,9 +114,11 @@ class AppDatabase {
         pauta TEXT,
         is_warmup INTEGER NOT NULL DEFAULT 0,
         position INTEGER NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'strength',
         FOREIGN KEY (day_id) REFERENCES days(id) ON DELETE CASCADE
       )
     ''');
+    // weight/reps son de fuerza; el resto (duration_min..style) de cardio.
     await db.execute('''
       CREATE TABLE set_entries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -123,6 +129,13 @@ class AppDatabase {
         reps INTEGER,
         rpe REAL,
         note TEXT,
+        duration_min REAL,
+        distance REAL,
+        level INTEGER,
+        speed REAL,
+        incline REAL,
+        laps INTEGER,
+        style TEXT,
         FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
       )
     ''');
@@ -155,6 +168,7 @@ class AppDatabase {
           'pauta': ex.pauta,
           'is_warmup': ex.isWarmup ? 1 : 0,
           'position': e,
+          'kind': ex.kind.dbValue,
         });
         exId++;
       }

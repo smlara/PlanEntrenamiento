@@ -6,12 +6,21 @@
 /// y el resto quedan vacios (descanso).
 library;
 
+import 'models.dart';
+
 class SeedExercise {
   final String name;
   final String? puesto;
   final String? pauta;
   final bool isWarmup;
-  const SeedExercise(this.name, this.puesto, this.pauta, {this.isWarmup = false});
+  final ExerciseKind kind;
+  const SeedExercise(
+    this.name,
+    this.puesto,
+    this.pauta, {
+    this.isWarmup = false,
+    this.kind = ExerciseKind.strength,
+  });
 }
 
 class SeedDay {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../repository.dart';
+import 'cardio_log_screen.dart';
 import 'exercise_log_screen.dart';
 
 class DayScreen extends StatefulWidget {
@@ -52,6 +53,7 @@ class _DayScreenState extends State<DayScreen> {
       puesto: result.puesto,
       pauta: result.pauta,
       isWarmup: result.isWarmup,
+      kind: result.kind,
     );
     _reload();
   }
@@ -65,6 +67,7 @@ class _DayScreenState extends State<DayScreen> {
       puesto: result.puesto,
       pauta: result.pauta,
       isWarmup: result.isWarmup,
+      kind: result.kind,
     );
     _reload();
   }
@@ -303,9 +306,13 @@ class _ExerciseTile extends StatelessWidget {
     }
 
     final chips = <Widget>[
+      if (exercise.isCardio)
+        _InfoChip(icon: kindIcon(exercise.kind), label: exercise.kind.label),
       if (exercise.puesto != null && exercise.puesto!.isNotEmpty)
         _InfoChip(icon: Icons.place, label: exercise.puesto!),
-      if (exercise.pauta != null && exercise.pauta!.isNotEmpty)
+      if (!exercise.isCardio &&
+          exercise.pauta != null &&
+          exercise.pauta!.isNotEmpty)
         _InfoChip(icon: Icons.repeat, label: exercise.pauta!),
     ];
 
@@ -324,13 +331,23 @@ class _ExerciseTile extends StatelessWidget {
         trailing: _actions(scheme),
         onTap: () {
           Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => ExerciseLogScreen(exercise: exercise),
+            builder: (_) => exercise.isCardio
+                ? CardioLogScreen(exercise: exercise)
+                : ExerciseLogScreen(exercise: exercise),
           ));
         },
       ),
     );
   }
 }
+
+/// Icono representativo de cada tipo de ejercicio.
+IconData kindIcon(ExerciseKind kind) => switch (kind) {
+      ExerciseKind.strength => Icons.fitness_center,
+      ExerciseKind.bike => Icons.directions_bike,
+      ExerciseKind.swim => Icons.pool,
+      ExerciseKind.treadmill => Icons.directions_run,
+    };
 
 class _InfoChip extends StatelessWidget {
   const _InfoChip({required this.icon, required this.label});
@@ -366,7 +383,9 @@ class ExerciseFormResult {
   final String? puesto;
   final String? pauta;
   final bool isWarmup;
-  const ExerciseFormResult(this.name, this.puesto, this.pauta, this.isWarmup);
+  final ExerciseKind kind;
+  const ExerciseFormResult(
+      this.name, this.puesto, this.pauta, this.isWarmup, this.kind);
 }
 
 /// Muestra el formulario para crear o editar un ejercicio.
@@ -391,6 +410,7 @@ class _ExerciseFormDialogState extends State<_ExerciseFormDialog> {
   late final TextEditingController _puesto;
   late final TextEditingController _pauta;
   late bool _isWarmup;
+  late ExerciseKind _kind;
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -401,6 +421,7 @@ class _ExerciseFormDialogState extends State<_ExerciseFormDialog> {
     _puesto = TextEditingController(text: e?.puesto ?? '');
     _pauta = TextEditingController(text: e?.pauta ?? '');
     _isWarmup = e?.isWarmup ?? false;
+    _kind = e?.kind ?? ExerciseKind.strength;
   }
 
   @override
@@ -418,8 +439,10 @@ class _ExerciseFormDialogState extends State<_ExerciseFormDialog> {
       ExerciseFormResult(
         _name.text.trim(),
         _puesto.text,
-        _pauta.text,
-        _isWarmup,
+        // En cardio no aplican pauta ni calentamiento.
+        _kind.isCardio ? '' : _pauta.text,
+        _kind.isCardio ? false : _isWarmup,
+        _kind,
       ),
     );
   }
@@ -435,6 +458,26 @@ class _ExerciseFormDialogState extends State<_ExerciseFormDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            DropdownButtonFormField<ExerciseKind>(
+              initialValue: _kind,
+              decoration: const InputDecoration(labelText: 'Tipo'),
+              items: [
+                for (final k in ExerciseKind.values)
+                  DropdownMenuItem(
+                    value: k,
+                    child: Row(
+                      children: [
+                        Icon(kindIcon(k), size: 18),
+                        const SizedBox(width: 8),
+                        Text(k.label),
+                      ],
+                    ),
+                  ),
+              ],
+              onChanged: (v) =>
+                  setState(() => _kind = v ?? ExerciseKind.strength),
+            ),
+            const SizedBox(height: 8),
             TextFormField(
               controller: _name,
               autofocus: true,
@@ -454,22 +497,25 @@ class _ExerciseFormDialogState extends State<_ExerciseFormDialog> {
                 hintText: 'p.ej. M 22',
               ),
             ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _pauta,
-              decoration: const InputDecoration(
-                labelText: 'Pauta',
-                hintText: 'p.ej. 3X15',
+            // Pauta y calentamiento solo aplican a fuerza.
+            if (!_kind.isCardio) ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _pauta,
+                decoration: const InputDecoration(
+                  labelText: 'Pauta',
+                  hintText: 'p.ej. 3X15',
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Es calentamiento'),
-              subtitle: const Text('No se registran series'),
-              value: _isWarmup,
-              onChanged: (v) => setState(() => _isWarmup = v),
-            ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Es calentamiento'),
+                subtitle: const Text('No se registran series'),
+                value: _isWarmup,
+                onChanged: (v) => setState(() => _isWarmup = v),
+              ),
+            ],
           ],
         ),
       ),

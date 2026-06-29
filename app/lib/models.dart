@@ -3,6 +3,40 @@
 /// Estructura: Dia -> Ejercicio -> Series registradas (SetEntry) por fecha.
 library;
 
+/// Tipo de ejercicio. `strength` es fuerza clasica (peso x reps x RPE); el resto
+/// son cardio, cada uno con sus propias metricas (ver [SetEntry]).
+enum ExerciseKind {
+  strength, // fuerza: peso, reps, RPE
+  bike, // bici estatica: tiempo, nivel, distancia
+  swim, // natacion: largos, estilo, tiempo
+  treadmill, // cinta: tiempo, distancia, velocidad, inclinacion
+}
+
+extension ExerciseKindX on ExerciseKind {
+  /// Valor que se guarda en la columna `kind` de la BD.
+  String get dbValue => name;
+
+  bool get isCardio => this != ExerciseKind.strength;
+
+  /// Etiqueta legible en espanol para la UI.
+  String get label => switch (this) {
+        ExerciseKind.strength => 'Fuerza',
+        ExerciseKind.bike => 'Bici estatica',
+        ExerciseKind.swim => 'Natacion',
+        ExerciseKind.treadmill => 'Cinta',
+      };
+}
+
+/// Parsea el valor guardado en BD a [ExerciseKind]. Por defecto, fuerza.
+ExerciseKind kindFromString(String? v) {
+  return switch (v) {
+    'bike' => ExerciseKind.bike,
+    'swim' => ExerciseKind.swim,
+    'treadmill' => ExerciseKind.treadmill,
+    _ => ExerciseKind.strength,
+  };
+}
+
 class WorkoutDay {
   final int id;
   final String name; // p.ej. "Lunes"
@@ -32,6 +66,7 @@ class Exercise {
   final String? pauta; // p.ej. "3X15" (series x reps prescritas)
   final bool isWarmup; // calentamiento (no se registran series)
   final int position;
+  final ExerciseKind kind; // fuerza (por defecto) o un tipo de cardio
 
   const Exercise({
     required this.id,
@@ -41,7 +76,10 @@ class Exercise {
     this.pauta,
     this.isWarmup = false,
     required this.position,
+    this.kind = ExerciseKind.strength,
   });
+
+  bool get isCardio => kind.isCardio;
 
   factory Exercise.fromMap(Map<String, Object?> m) => Exercise(
         id: m['id'] as int,
@@ -51,19 +89,31 @@ class Exercise {
         pauta: m['pauta'] as String?,
         isWarmup: (m['is_warmup'] as int? ?? 0) == 1,
         position: m['position'] as int,
+        kind: kindFromString(m['kind'] as String?),
       );
 }
 
-/// Una serie concreta registrada en una fecha: peso x reps y sensacion (RPE).
+/// Una entrada registrada en una fecha. En fuerza es una serie (peso x reps x
+/// RPE); en cardio es una sesion con metricas propias del tipo (tiempo, nivel,
+/// distancia, largos, estilo...). Los campos que no aplican quedan a null.
 class SetEntry {
   final int? id;
   final int exerciseId;
   final String date; // 'yyyy-MM-dd'
-  final int setIndex; // 1, 2, 3...
+  final int setIndex; // 1, 2, 3... (en cardio siempre 1)
+  // --- Fuerza ---
   final double? weight; // kg
   final int? reps;
-  final double? rpe; // 1-10
+  final double? rpe; // 1-10 (tambien esfuerzo percibido en cardio)
   final String? note;
+  // --- Cardio ---
+  final double? durationMin; // tiempo en minutos (bici, cinta, natacion opc.)
+  final double? distance; // km (bici opc., cinta)
+  final int? level; // nivel/dificultad (bici)
+  final double? speed; // km/h (cinta)
+  final double? incline; // % inclinacion (cinta)
+  final int? laps; // largos (natacion)
+  final String? style; // estilo (natacion)
 
   const SetEntry({
     this.id,
@@ -74,6 +124,13 @@ class SetEntry {
     this.reps,
     this.rpe,
     this.note,
+    this.durationMin,
+    this.distance,
+    this.level,
+    this.speed,
+    this.incline,
+    this.laps,
+    this.style,
   });
 
   SetEntry copyWith({
@@ -82,6 +139,13 @@ class SetEntry {
     int? reps,
     double? rpe,
     String? note,
+    double? durationMin,
+    double? distance,
+    int? level,
+    double? speed,
+    double? incline,
+    int? laps,
+    String? style,
   }) =>
       SetEntry(
         id: id ?? this.id,
@@ -92,6 +156,13 @@ class SetEntry {
         reps: reps ?? this.reps,
         rpe: rpe ?? this.rpe,
         note: note ?? this.note,
+        durationMin: durationMin ?? this.durationMin,
+        distance: distance ?? this.distance,
+        level: level ?? this.level,
+        speed: speed ?? this.speed,
+        incline: incline ?? this.incline,
+        laps: laps ?? this.laps,
+        style: style ?? this.style,
       );
 
   Map<String, Object?> toMap() => {
@@ -103,6 +174,13 @@ class SetEntry {
         'reps': reps,
         'rpe': rpe,
         'note': note,
+        'duration_min': durationMin,
+        'distance': distance,
+        'level': level,
+        'speed': speed,
+        'incline': incline,
+        'laps': laps,
+        'style': style,
       };
 
   factory SetEntry.fromMap(Map<String, Object?> m) => SetEntry(
@@ -114,6 +192,13 @@ class SetEntry {
         reps: m['reps'] as int?,
         rpe: (m['rpe'] as num?)?.toDouble(),
         note: m['note'] as String?,
+        durationMin: (m['duration_min'] as num?)?.toDouble(),
+        distance: (m['distance'] as num?)?.toDouble(),
+        level: (m['level'] as num?)?.toInt(),
+        speed: (m['speed'] as num?)?.toDouble(),
+        incline: (m['incline'] as num?)?.toDouble(),
+        laps: (m['laps'] as num?)?.toInt(),
+        style: m['style'] as String?,
       );
 }
 
@@ -129,4 +214,25 @@ class SessionSummary {
 
   double get totalVolume => sets.fold<double>(
       0, (a, s) => a + (s.weight ?? 0) * (s.reps ?? 0));
+
+  // ---- Cardio (en cardio una sesion suele tener una sola entrada) ----
+
+  double get totalDistance =>
+      sets.fold<double>(0, (a, s) => a + (s.distance ?? 0));
+
+  double get totalDurationMin =>
+      sets.fold<double>(0, (a, s) => a + (s.durationMin ?? 0));
+
+  int get totalLaps => sets.fold<int>(0, (a, s) => a + (s.laps ?? 0));
+
+  /// Valor a representar en la grafica de progresion segun el tipo:
+  /// bici -> distancia (o tiempo si no hay distancia), natacion -> largos,
+  /// cinta -> distancia. Devuelve 0 si no hay dato.
+  double metricFor(ExerciseKind kind) => switch (kind) {
+        ExerciseKind.bike =>
+          totalDistance > 0 ? totalDistance : totalDurationMin,
+        ExerciseKind.swim => totalLaps.toDouble(),
+        ExerciseKind.treadmill => totalDistance,
+        ExerciseKind.strength => maxWeight,
+      };
 }
