@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models.dart';
 import '../repository.dart';
+import '../settings_controller.dart';
 import 'day_screen.dart';
 import 'settings_screen.dart';
 
@@ -61,16 +62,22 @@ class _HomeScreenState extends State<HomeScreen> {
             debugPrintStack(stackTrace: snap.stackTrace);
             return Center(child: Text('Error: ${snap.error}'));
           }
-          final days = snap.data ?? [];
+          final allDays = snap.data ?? [];
           // weekday: 1=Lunes..7=Domingo  ->  position 0..6
           final todayPos = DateTime.now().weekday - 1;
+          final hideRest = context.watch<SettingsController>().hideRestDays;
+          final days =
+              hideRest ? allDays.where((d) => d.active).toList() : allDays;
           return ListView(
             padding: const EdgeInsets.all(12),
             children: [
               const _Header(),
               const SizedBox(height: 8),
-              for (final day in days)
-                _DayCard(day: day, isToday: day.position == todayPos),
+              if (days.isEmpty)
+                const _EmptyDays()
+              else
+                for (final day in days)
+                  _DayCard(day: day, isToday: day.position == todayPos),
             ],
           );
         },
@@ -129,6 +136,32 @@ class _Header extends StatelessWidget {
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
+/// Estado vacio: cuando se ocultan los descansos y no hay dias de entrenamiento.
+class _EmptyDays extends StatelessWidget {
+  const _EmptyDays();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      child: Column(
+        children: [
+          Icon(Icons.event_busy_outlined,
+              size: 48, color: scheme.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text(
+            'No hay dias de entrenamiento marcados.\n'
+            'Activalos en Configuracion.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DayCard extends StatelessWidget {
   const _DayCard({required this.day, this.isToday = false});
   final WorkoutDay day;
@@ -158,7 +191,7 @@ class _DayCard extends StatelessWidget {
           foregroundColor: isToday
               ? scheme.onPrimary
               : (isRest ? scheme.onSurfaceVariant : scheme.onSecondaryContainer),
-          child: Icon(isRest ? Icons.bedtime_outlined : Icons.fitness_center),
+          child: Icon(isRest ? Icons.weekend_outlined : Icons.fitness_center),
         ),
         title: Text(
           day.name,

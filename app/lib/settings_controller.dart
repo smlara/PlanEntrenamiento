@@ -15,17 +15,24 @@ class SettingsController extends ChangeNotifier {
   final WorkoutRepository _repo;
 
   static const _kThemeMode = 'theme_mode';
+  static const _kHideRestDays = 'hide_rest_days';
 
   ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
+
+  /// Si es true, los dias de descanso no se muestran en la pantalla de inicio.
+  bool _hideRestDays = false;
+  bool get hideRestDays => _hideRestDays;
 
   /// Carga las preferencias guardadas. Si falla (p.ej. BD aun no lista),
   /// mantiene los valores por defecto sin romper el arranque.
   Future<void> load() async {
     try {
       _themeMode = _parseMode(await _repo.getSetting(_kThemeMode));
+      _hideRestDays = await _repo.getSetting(_kHideRestDays) == 'true';
     } catch (_) {
       _themeMode = ThemeMode.system;
+      _hideRestDays = false;
     }
     notifyListeners();
   }
@@ -35,6 +42,13 @@ class SettingsController extends ChangeNotifier {
     _themeMode = mode;
     notifyListeners();
     await _repo.setSetting(_kThemeMode, _serializeMode(mode));
+  }
+
+  Future<void> setHideRestDays(bool value) async {
+    if (value == _hideRestDays) return;
+    _hideRestDays = value;
+    notifyListeners();
+    await _repo.setSetting(_kHideRestDays, value ? 'true' : 'false');
   }
 
   static ThemeMode _parseMode(String? v) {

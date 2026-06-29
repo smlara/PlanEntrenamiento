@@ -61,6 +61,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 8),
+            Card(
+              child: SwitchListTile(
+                value: context.watch<SettingsController>().hideRestDays,
+                onChanged: (v) =>
+                    context.read<SettingsController>().setHideRestDays(v),
+                title: const Text('Ocultar dias de descanso'),
+                subtitle: const Text('No mostrarlos en la pantalla de inicio'),
+                secondary: const Icon(Icons.visibility_off_outlined),
+              ),
+            ),
+            const SizedBox(height: 8),
             FutureBuilder<List<WorkoutDay>>(
               future: _days,
               builder: (context, snap) {
@@ -83,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           secondary: Icon(
                             days[i].active
                                 ? Icons.fitness_center
-                                : Icons.bedtime_outlined,
+                                : Icons.weekend_outlined,
                           ),
                         ),
                       ],
