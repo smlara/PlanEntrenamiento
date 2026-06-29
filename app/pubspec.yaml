@@ -49,6 +49,8 @@ dependencies:
   fl_chart: ^0.69.2
   # Formato de fechas / locale es
   intl: ^0.20.2
+  # Exportar / importar copia de seguridad (elegir y guardar fichero)
+  file_picker: ^8.1.6
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +63,27 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # Genera los iconos de la app (Android/Web/Windows) desde assets/icon/.
+  flutter_launcher_icons: ^0.14.4
+
+# Configuracion del logo de la app. Regenerar con:
+#   flutter pub run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/icon/logo.png"
+  android: true
+  min_sdk_android: 21
+  adaptive_icon_background: "#1B5E20"
+  adaptive_icon_foreground: "assets/icon/logo_foreground.png"
+  web:
+    generate: true
+    image_path: "assets/icon/logo.png"
+    background_color: "#1B5E20"
+    theme_color: "#2E7D32"
+  windows:
+    generate: true
+    image_path: "assets/icon/logo.png"
+    icon_size: 48
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -71,6 +94,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/icon/logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

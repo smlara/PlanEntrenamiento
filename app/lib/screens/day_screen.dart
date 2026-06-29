@@ -225,23 +225,39 @@ class _ExerciseTile extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          tooltip: 'Duplicar',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.content_copy_outlined),
-          onPressed: onDuplicate,
-        ),
-        IconButton(
           tooltip: 'Editar',
           visualDensity: VisualDensity.compact,
           icon: const Icon(Icons.edit_outlined),
           onPressed: onEdit,
         ),
-        IconButton(
-          tooltip: 'Borrar',
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.delete_outline),
-          color: scheme.error,
-          onPressed: onDelete,
+        PopupMenuButton<String>(
+          tooltip: 'Mas opciones',
+          onSelected: (value) {
+            switch (value) {
+              case 'duplicate':
+                onDuplicate();
+              case 'delete':
+                onDelete();
+            }
+          },
+          itemBuilder: (ctx) => [
+            const PopupMenuItem(
+              value: 'duplicate',
+              child: ListTile(
+                leading: Icon(Icons.content_copy_outlined),
+                title: Text('Duplicar'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: ListTile(
+                leading: Icon(Icons.delete_outline, color: scheme.error),
+                title: Text('Borrar', style: TextStyle(color: scheme.error)),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
         ),
       ],
     );

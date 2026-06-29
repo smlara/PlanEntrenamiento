@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Solo la mancuerna, centrada y al 62% para la zona segura del icono adaptativo Android -->
+  <g transform="translate(512 512) scale(0.98) translate(-512 -512)">
+    <g transform="rotate(-25 512 512)" fill="#ffffff">
+      <rect x="252" y="451" width="34" height="122" rx="16"/>
+      <rect x="286" y="411" width="52" height="202" rx="22"/>
+      <rect x="330" y="441" width="52" height="142" rx="20"/>
+      <rect x="372" y="482" width="280" height="60" rx="30"/>
+      <rect x="642" y="441" width="52" height="142" rx="20"/>
+      <rect x="686" y="411" width="52" height="202" rx="22"/>
+      <rect x="738" y="451" width="34" height="122" rx="16"/>
+    </g>
+  </g>
+</svg>

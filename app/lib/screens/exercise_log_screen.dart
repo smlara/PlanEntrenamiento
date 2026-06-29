@@ -50,12 +50,33 @@ class _ExerciseLogScreenState extends State<ExerciseLogScreen> {
       ..clear()
       ..addAll(sets.map((s) => _SetRow.fromEntry(s)));
     if (_rows.isEmpty) {
-      _rows.add(_SetRow.empty(1));
+      // Primera serie del dia: precarga el peso/reps de la ultima sesion. Si no
+      // hay historial, sugiere las repeticiones de la pauta (p.ej. "3X15" -> 15).
+      final row = _SetRow.empty(1);
+      final last = await _repo.getLastSession(widget.exercise.id, before: _dateKey);
+      if (last != null && last.isNotEmpty) {
+        final src = last.last; // el ultimo que se puso
+        if (src.weight != null) row.weightCtrl.text = _fmt(src.weight!);
+        if (src.reps != null) row.repsCtrl.text = '${src.reps}';
+      } else {
+        final pautaReps = _pautaReps(widget.exercise.pauta);
+        if (pautaReps != null) row.repsCtrl.text = '$pautaReps';
+      }
+      _rows.add(row);
     }
     setState(() {
       _sessions = sessions;
       _loading = false;
     });
+  }
+
+  /// Extrae las repeticiones prescritas de una pauta tipo "3X15", "4x8-10"...
+  static int? _pautaReps(String? pauta) {
+    if (pauta == null || pauta.trim().isEmpty) return null;
+    final afterX = RegExp(r'[xX]\s*(\d+)').firstMatch(pauta);
+    if (afterX != null) return int.tryParse(afterX.group(1)!);
+    final anyNum = RegExp(r'(\d+)').firstMatch(pauta);
+    return anyNum != null ? int.tryParse(anyNum.group(1)!) : null;
   }
 
   Future<void> _saveRow(_SetRow row) async {

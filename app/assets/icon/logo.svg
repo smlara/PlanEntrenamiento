@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#43A047"/>
+      <stop offset="1" stop-color="#1B5E20"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="320" cy="280" r="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#glow)"/>
+
+  <!-- Mancuerna en diagonal -->
+  <g transform="translate(512 512) scale(1.26) translate(-512 -512) rotate(-25 512 512)" fill="#ffffff">
+    <!-- tope izquierdo -->
+    <rect x="252" y="451" width="34" height="122" rx="16"/>
+    <!-- disco grande izquierdo -->
+    <rect x="286" y="411" width="52" height="202" rx="22"/>
+    <!-- disco pequeno izquierdo -->
+    <rect x="330" y="441" width="52" height="142" rx="20"/>
+    <!-- barra -->
+    <rect x="372" y="482" width="280" height="60" rx="30"/>
+    <!-- disco pequeno derecho -->
+    <rect x="642" y="441" width="52" height="142" rx="20"/>
+    <!-- disco grande derecho -->
+    <rect x="686" y="411" width="52" height="202" rx="22"/>
+    <!-- tope derecho -->
+    <rect x="738" y="451" width="34" height="122" rx="16"/>
+  </g>
+</svg>

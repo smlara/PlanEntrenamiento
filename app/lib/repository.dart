@@ -203,27 +203,64 @@ class WorkoutRepository {
 
   // ---- Copia de seguridad (exportar / importar) ----
 
+  /// Exporta TODA la configuracion y los datos: dias (con su estado activo),
+  /// ejercicios, series registradas y preferencias.
   Future<Map<String, Object?>> exportData() async {
     final db = await _db;
-    final entries = await db.query('set_entries');
     return {
-      'version': 1,
+      'version': 2,
       'exported_at': DateTime.now().toIso8601String(),
-      'set_entries': entries,
+      'days': await db.query('days'),
+      'exercises': await db.query('exercises'),
+      'set_entries': await db.query('set_entries'),
+      'settings': await db.query('settings'),
     };
   }
 
-  Future<int> importData(Map<String, Object?> data) async {
+  /// Restaura una copia de seguridad. Si el backup es del formato completo
+  /// (incluye `days`), REEMPLAZA todos los datos actuales. Si es del formato
+  /// antiguo (solo `set_entries`), los anade.
+  Future<void> importData(Map<String, Object?> data) async {
     final db = await _db;
+    final days = (data['days'] as List?)?.cast<Map<String, Object?>>();
+
+    if (days != null) {
+      final exercises =
+          (data['exercises'] as List? ?? []).cast<Map<String, Object?>>();
+      final entries =
+          (data['set_entries'] as List? ?? []).cast<Map<String, Object?>>();
+      final settings =
+          (data['settings'] as List? ?? []).cast<Map<String, Object?>>();
+      await db.transaction((txn) async {
+        await txn.delete('set_entries');
+        await txn.delete('exercises');
+        await txn.delete('days');
+        await txn.delete('settings');
+        final batch = txn.batch();
+        for (final r in days) {
+          batch.insert('days', r);
+        }
+        for (final r in exercises) {
+          batch.insert('exercises', r);
+        }
+        for (final r in entries) {
+          batch.insert('set_entries', r);
+        }
+        for (final r in settings) {
+          batch.insert('settings', r);
+        }
+        await batch.commit(noResult: true);
+      });
+      return;
+    }
+
+    // Formato antiguo: solo series, se anaden.
     final entries = (data['set_entries'] as List).cast<Map<String, Object?>>();
-    var count = 0;
     final batch = db.batch();
     for (final e in entries) {
       final m = Map<String, Object?>.from(e)..remove('id');
       batch.insert('set_entries', m);
-      count++;
     }
     await batch.commit(noResult: true);
-    return count;
   }
 }

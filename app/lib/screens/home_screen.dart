@@ -42,7 +42,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Plan de Entrenamiento'),
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Image.asset('assets/icon/logo.png', height: 30, width: 30),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text('Plan de Entrenamiento',
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Configuracion',

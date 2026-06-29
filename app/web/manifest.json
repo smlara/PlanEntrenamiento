@@ -3,7 +3,7 @@
     "short_name": "Entreno",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#2E7D32",
+    "background_color": "#1B5E20",
     "theme_color": "#2E7D32",
     "description": "Registro personal de entrenamientos: series, peso, reps y RPE.",
     "orientation": "portrait-primary",

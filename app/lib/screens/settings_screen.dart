@@ -1,4 +1,9 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -33,6 +38,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _days = repo.getDays();
     });
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// Exporta toda la configuracion y los datos a un fichero JSON.
+  Future<void> _exportBackup() async {
+    final repo = context.read<WorkoutRepository>();
+    try {
+      final data = await repo.exportData();
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
+      final bytes = Uint8List.fromList(utf8.encode(jsonStr));
+      final fecha = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Guardar copia de seguridad',
+        fileName: 'plan_entrenamiento_$fecha.json',
+        bytes: bytes,
+      );
+      if (kIsWeb) {
+        _snack('Copia de seguridad descargada');
+      } else if (path != null) {
+        _snack('Copia de seguridad guardada');
+      }
+    } catch (e) {
+      _snack('No se pudo exportar: $e');
+    }
+  }
+
+  /// Importa una copia de seguridad desde un fichero JSON (reemplaza los datos).
+  Future<void> _importBackup() async {
+    final repo = context.read<WorkoutRepository>();
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Elegir copia de seguridad',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        withData: true,
+      );
+      if (result == null) return; // cancelado
+      final bytes = result.files.single.bytes;
+      if (bytes == null) {
+        _snack('No se pudo leer el fichero');
+        return;
+      }
+
+      if (!mounted) return;
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Importar copia'),
+          content: const Text(
+              'Esto REEMPLAZARA todos tus datos actuales (dias, ejercicios, '
+              'series y preferencias) por los de la copia. No se puede deshacer.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Importar')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+
+      final data = jsonDecode(utf8.decode(bytes)) as Map<String, Object?>;
+      await repo.importData(data);
+      if (!mounted) return;
+      await context.read<SettingsController>().load(); // refresca tema/preferencias
+      _daysChanged = true; // que la home se recargue al volver
+      setState(() => _days = repo.getDays());
+      _snack('Copia importada correctamente');
+    } catch (e) {
+      _snack('No se pudo importar: $e');
+    }
   }
 
   @override
@@ -102,6 +184,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 24),
+            _SectionTitle('Copia de seguridad', icon: Icons.backup_outlined),
+            const SizedBox(height: 4),
+            Text(
+              'Guarda o restaura toda tu configuracion y tu historial en un '
+              'fichero. Util para no perder los datos o pasarlos a otro dispositivo.',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.file_download_outlined),
+                    title: const Text('Exportar'),
+                    subtitle: const Text('Guardar copia en un fichero JSON'),
+                    onTap: _exportBackup,
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.file_upload_outlined),
+                    title: const Text('Importar'),
+                    subtitle: const Text('Restaurar desde un fichero (reemplaza)'),
+                    onTap: _importBackup,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
