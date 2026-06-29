@@ -1,0 +1,55 @@
+name: Deploy PWA a GitHub Pages
+
+# Compila el Flutter web y lo publica en GitHub Pages.
+# El proyecto Flutter vive en la subcarpeta app/.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # permite lanzarlo a mano desde la pestaña Actions
+
+# Permisos que necesita el deploy oficial de Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Evita despliegues solapados; deja terminar el que esté en curso
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          # Fija una versión cercana a la del proyecto (CLAUDE.md: 3.44.x)
+          flutter-version: 3.44.0
+
+      - name: Dependencias
+        working-directory: app
+        run: flutter pub get
+
+      # base-href debe coincidir con el nombre del repo: /PlanEntrenamiento/
+      - name: Build web
+        working-directory: app
+        run: flutter build web --release --base-href "/PlanEntrenamiento/"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
