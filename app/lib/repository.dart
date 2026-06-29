@@ -54,6 +54,13 @@ class WorkoutRepository {
     return Exercise.fromMap(rows.first);
   }
 
+  /// Todos los ejercicios de todos los dias (para el selector de objetivos).
+  Future<List<Exercise>> getAllExercises() async {
+    final db = await _db;
+    final rows = await db.query('exercises', orderBy: 'day_id ASC, position ASC');
+    return rows.map(Exercise.fromMap).toList();
+  }
+
   /// Anade un ejercicio al final del dia indicado. Devuelve su id.
   Future<int> addExercise(
     int dayId, {
@@ -219,6 +226,51 @@ class WorkoutRepository {
         where: 'exercise_id = ? AND date = ?', whereArgs: [exerciseId, date]);
   }
 
+  // ---- Objetivos ----
+
+  Future<List<Goal>> getGoals() async {
+    final db = await _db;
+    final rows = await db.query('goals', orderBy: 'id ASC');
+    return rows.map(Goal.fromMap).toList();
+  }
+
+  Future<int> addGoal(Goal goal) async {
+    final db = await _db;
+    final map = goal.toMap()
+      ..remove('id')
+      ..['created_at'] = goal.createdAt ?? DateTime.now().toIso8601String();
+    return db.insert('goals', map);
+  }
+
+  Future<void> updateGoal(Goal goal) async {
+    final db = await _db;
+    await db.update('goals', goal.toMap(),
+        where: 'id = ?', whereArgs: [goal.id]);
+  }
+
+  Future<void> deleteGoal(int id) async {
+    final db = await _db;
+    await db.delete('goals', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Mejor valor historico de una metrica para un ejercicio (para el progreso
+  /// de un objetivo PR). Devuelve 0 si no hay registros.
+  Future<double> getBestMetric(int exerciseId, String metric) async {
+    final sessions = await getSessions(exerciseId);
+    return sessions
+        .map((s) => s.metricValue(metric))
+        .fold<double>(0, (a, b) => b > a ? b : a);
+  }
+
+  /// Fechas distintas ('yyyy-MM-dd') en las que hay alguna serie registrada
+  /// (un "entreno"). Para los objetivos de frecuencia.
+  Future<List<String>> getAllTrainingDates() async {
+    final db = await _db;
+    final rows = await db.rawQuery(
+        'SELECT DISTINCT date FROM set_entries ORDER BY date ASC');
+    return rows.map((r) => r['date'] as String).toList();
+  }
+
   // ---- Copia de seguridad (exportar / importar) ----
 
   /// Exporta TODA la configuracion y los datos: dias (con su estado activo),
@@ -226,12 +278,13 @@ class WorkoutRepository {
   Future<Map<String, Object?>> exportData() async {
     final db = await _db;
     return {
-      'version': 3,
+      'version': 4,
       'exported_at': DateTime.now().toIso8601String(),
       'days': await db.query('days'),
       'exercises': await db.query('exercises'),
       'set_entries': await db.query('set_entries'),
       'settings': await db.query('settings'),
+      'goals': await db.query('goals'),
     };
   }
 
@@ -249,7 +302,10 @@ class WorkoutRepository {
           (data['set_entries'] as List? ?? []).cast<Map<String, Object?>>();
       final settings =
           (data['settings'] as List? ?? []).cast<Map<String, Object?>>();
+      final goals =
+          (data['goals'] as List? ?? []).cast<Map<String, Object?>>();
       await db.transaction((txn) async {
+        await txn.delete('goals');
         await txn.delete('set_entries');
         await txn.delete('exercises');
         await txn.delete('days');
@@ -266,6 +322,9 @@ class WorkoutRepository {
         }
         for (final r in settings) {
           batch.insert('settings', r);
+        }
+        for (final r in goals) {
+          batch.insert('goals', r);
         }
         await batch.commit(noResult: true);
       });

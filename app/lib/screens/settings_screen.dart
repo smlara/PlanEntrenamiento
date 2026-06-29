@@ -11,10 +11,9 @@ import '../models.dart';
 import '../repository.dart';
 import '../settings_controller.dart';
 
-/// Pantalla de configuracion: apariencia (tema) y dias de entrenamiento activos.
-///
-/// Devuelve `true` al cerrarse si se cambio algun dia activo, para que la home
-/// se recargue.
+/// Pantalla de configuracion (pestana): apariencia (tema), dias de entrenamiento
+/// activos y copia de seguridad. La home recoge los cambios al reconstruirse al
+/// volver a su pestana.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -24,7 +23,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late Future<List<WorkoutDay>> _days;
-  bool _daysChanged = false;
 
   @override
   void initState() {
@@ -35,7 +33,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleDay(WorkoutDay day, bool active) async {
     final repo = context.read<WorkoutRepository>();
     await repo.setDayActive(day.id, active);
-    _daysChanged = true;
     setState(() {
       _days = repo.getDays();
     });
@@ -111,7 +108,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await repo.importData(data);
       if (!mounted) return;
       await context.read<SettingsController>().load(); // refresca tema/preferencias
-      _daysChanged = true; // que la home se recargue al volver
       setState(() => _days = repo.getDays());
       _snack('Copia importada correctamente');
     } catch (e) {
@@ -122,14 +118,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) Navigator.of(context).pop(_daysChanged);
-      },
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Configuracion')),
-        body: ListView(
+    return Scaffold(
+      appBar: AppBar(title: const Text('Configuracion')),
+      body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             _SectionTitle('Apariencia', icon: Icons.palette_outlined),
@@ -217,7 +208,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 }

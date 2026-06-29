@@ -24,7 +24,9 @@ class AppDatabase {
   /// v5: ejercicios de cardio. `exercises.kind` (fuerza/bici/natacion/cinta) y
   /// columnas de metricas en `set_entries` (duration_min, distance, level,
   /// speed, incline, laps, style).
-  static const int _version = 5;
+  /// v6: tabla `goals` (objetivos). Peso/altura biometricos se guardan en
+  /// `settings`. Reseed completo (no se conservan datos).
+  static const int _version = 6;
 
   Database? _db;
 
@@ -82,6 +84,7 @@ class AppDatabase {
   /// Migracion. Como el cambio de estructura de dias (3 -> 7) es incompatible
   /// con los datos previos, se recrea el esquema desde cero.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    await db.execute('DROP TABLE IF EXISTS goals');
     await db.execute('DROP TABLE IF EXISTS set_entries');
     await db.execute('DROP TABLE IF EXISTS exercises');
     await db.execute('DROP TABLE IF EXISTS days');
@@ -141,6 +144,20 @@ class AppDatabase {
     ''');
     await db.execute(
         'CREATE INDEX idx_entries_ex_date ON set_entries(exercise_id, date)');
+    // Objetivos del usuario (marca por ejercicio, peso corporal, frecuencia).
+    await db.execute('''
+      CREATE TABLE goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        exercise_id INTEGER,
+        metric TEXT,
+        target REAL NOT NULL,
+        start_value REAL,
+        deadline TEXT,
+        created_at TEXT,
+        FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
+      )
+    ''');
 
     await _seed(db);
   }

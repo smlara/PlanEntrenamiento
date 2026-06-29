@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'repository.dart';
 import 'settings_controller.dart';
-import 'screens/home_screen.dart';
+import 'screens/root_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +45,7 @@ class PlanEntrenamientoApp extends StatelessWidget {
             themeMode: settings.themeMode,
             theme: _buildTheme(Brightness.light),
             darkTheme: _buildTheme(Brightness.dark),
-            home: const HomeScreen(),
+            home: const RootShell(),
           );
         },
       ),

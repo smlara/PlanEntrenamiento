@@ -163,7 +163,7 @@ class _CardioLogScreenState extends State<CardioLogScreen> {
     final scheme = Theme.of(context).colorScheme;
     final parts = <String>[
       ex.kind.label,
-      if (ex.puesto != null && ex.puesto!.isNotEmpty) 'Puesto: ${ex.puesto}',
+      if (ex.pauta != null && ex.pauta!.isNotEmpty) 'Objetivo: ${ex.pauta}',
     ];
     return Card(
       color: scheme.secondaryContainer,

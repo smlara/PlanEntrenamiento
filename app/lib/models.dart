@@ -37,6 +37,34 @@ ExerciseKind kindFromString(String? v) {
   };
 }
 
+/// Metricas registrables y su unidad legible. Se usan como clave de objetivo
+/// (`goals.metric`) y para leer el valor de cada [SessionSummary].
+const Map<String, String> kMetricUnit = {
+  'weight': 'kg',
+  'distance': 'km',
+  'duration': 'min',
+  'laps': 'largos',
+  'speed': 'km/h',
+};
+
+/// Metricas que tienen sentido como objetivo (PR) segun el tipo de ejercicio.
+List<String> metricsForKind(ExerciseKind kind) => switch (kind) {
+      ExerciseKind.strength => const ['weight'],
+      ExerciseKind.bike => const ['distance', 'duration'],
+      ExerciseKind.swim => const ['laps', 'duration'],
+      ExerciseKind.treadmill => const ['distance', 'duration', 'speed'],
+    };
+
+/// Etiqueta legible de una metrica (p.ej. 'distance' -> 'Distancia (km)').
+String metricLabel(String metric) => switch (metric) {
+      'weight' => 'Peso (kg)',
+      'distance' => 'Distancia (km)',
+      'duration' => 'Tiempo (min)',
+      'laps' => 'Largos',
+      'speed' => 'Velocidad (km/h)',
+      _ => metric,
+    };
+
 class WorkoutDay {
   final int id;
   final String name; // p.ej. "Lunes"
@@ -225,6 +253,19 @@ class SessionSummary {
 
   int get totalLaps => sets.fold<int>(0, (a, s) => a + (s.laps ?? 0));
 
+  double get maxSpeed =>
+      sets.map((s) => s.speed ?? 0).fold<double>(0, (a, b) => b > a ? b : a);
+
+  /// Valor de la sesion para una metrica concreta (ver [kMetricUnit]).
+  double metricValue(String metric) => switch (metric) {
+        'weight' => maxWeight,
+        'distance' => totalDistance,
+        'duration' => totalDurationMin,
+        'laps' => totalLaps.toDouble(),
+        'speed' => maxSpeed,
+        _ => 0,
+      };
+
   /// Valor a representar en la grafica de progresion segun el tipo:
   /// bici -> distancia (o tiempo si no hay distancia), natacion -> largos,
   /// cinta -> distancia. Devuelve 0 si no hay dato.
@@ -235,4 +276,65 @@ class SessionSummary {
         ExerciseKind.treadmill => totalDistance,
         ExerciseKind.strength => maxWeight,
       };
+}
+
+/// Tipo de objetivo de la pestana Objetivos.
+enum GoalType {
+  exercise, // marca/PR de un ejercicio concreto
+  bodyweight, // peso corporal objetivo
+  frequency, // entrenos por semana
+}
+
+GoalType goalTypeFromString(String? v) => switch (v) {
+      'bodyweight' => GoalType.bodyweight,
+      'frequency' => GoalType.frequency,
+      _ => GoalType.exercise,
+    };
+
+/// Un objetivo del usuario. Segun [type] usa unos campos u otros:
+/// - exercise: [exerciseId] + [metric] + [target].
+/// - bodyweight: [target] (kg), [startValue] (peso al crear) y [deadline] opc.
+/// - frequency: [target] = entrenos por semana.
+class Goal {
+  final int? id;
+  final GoalType type;
+  final int? exerciseId;
+  final String? metric;
+  final double target;
+  final double? startValue;
+  final String? deadline; // 'yyyy-MM-dd'
+  final String? createdAt;
+
+  const Goal({
+    this.id,
+    required this.type,
+    this.exerciseId,
+    this.metric,
+    required this.target,
+    this.startValue,
+    this.deadline,
+    this.createdAt,
+  });
+
+  Map<String, Object?> toMap() => {
+        if (id != null) 'id': id,
+        'type': type.name,
+        'exercise_id': exerciseId,
+        'metric': metric,
+        'target': target,
+        'start_value': startValue,
+        'deadline': deadline,
+        'created_at': createdAt,
+      };
+
+  factory Goal.fromMap(Map<String, Object?> m) => Goal(
+        id: m['id'] as int?,
+        type: goalTypeFromString(m['type'] as String?),
+        exerciseId: m['exercise_id'] as int?,
+        metric: m['metric'] as String?,
+        target: (m['target'] as num).toDouble(),
+        startValue: (m['start_value'] as num?)?.toDouble(),
+        deadline: m['deadline'] as String?,
+        createdAt: m['created_at'] as String?,
+      );
 }

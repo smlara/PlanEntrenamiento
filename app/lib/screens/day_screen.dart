@@ -306,14 +306,15 @@ class _ExerciseTile extends StatelessWidget {
     }
 
     final chips = <Widget>[
-      if (exercise.isCardio)
-        _InfoChip(icon: kindIcon(exercise.kind), label: exercise.kind.label),
-      if (exercise.puesto != null && exercise.puesto!.isNotEmpty)
-        _InfoChip(icon: Icons.place, label: exercise.puesto!),
       if (!exercise.isCardio &&
-          exercise.pauta != null &&
-          exercise.pauta!.isNotEmpty)
-        _InfoChip(icon: Icons.repeat, label: exercise.pauta!),
+          exercise.puesto != null &&
+          exercise.puesto!.isNotEmpty)
+        _InfoChip(icon: Icons.place, label: exercise.puesto!),
+      if (exercise.pauta != null && exercise.pauta!.isNotEmpty)
+        _InfoChip(
+          icon: exercise.isCardio ? Icons.flag_outlined : Icons.repeat,
+          label: exercise.pauta!,
+        ),
     ];
 
     return Card(
@@ -434,18 +435,26 @@ class _ExerciseFormDialogState extends State<_ExerciseFormDialog> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    final cardio = _kind.isCardio;
     Navigator.pop(
       context,
       ExerciseFormResult(
-        _name.text.trim(),
-        _puesto.text,
-        // En cardio no aplican pauta ni calentamiento.
-        _kind.isCardio ? '' : _pauta.text,
-        _kind.isCardio ? false : _isWarmup,
+        // En cardio el nombre es el propio tipo; no hay puesto ni calentamiento.
+        cardio ? _kind.label : _name.text.trim(),
+        cardio ? '' : _puesto.text,
+        // En cardio, `pauta` guarda el objetivo (p.ej. "40 largos", "30 min").
+        _pauta.text,
+        cardio ? false : _isWarmup,
         _kind,
       ),
     );
   }
+
+  /// Pista del campo objetivo segun el tipo de cardio.
+  String get _objetivoHint => switch (_kind) {
+        ExerciseKind.swim => 'p.ej. 40 largos',
+        _ => 'p.ej. 30 min',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -478,27 +487,36 @@ class _ExerciseFormDialogState extends State<_ExerciseFormDialog> {
                   setState(() => _kind = v ?? ExerciseKind.strength),
             ),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: 'Nombre *',
-                hintText: 'p.ej. PRESS BANCA',
+            // En cardio el ejercicio es el propio tipo: solo objetivo opcional.
+            if (_kind.isCardio)
+              TextFormField(
+                controller: _pauta,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Objetivo (opcional)',
+                  hintText: _objetivoHint,
+                ),
+              )
+            else ...[
+              TextFormField(
+                controller: _name,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre *',
+                  hintText: 'p.ej. PRESS BANCA',
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Pon un nombre' : null,
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Pon un nombre' : null,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _puesto,
-              decoration: const InputDecoration(
-                labelText: 'Puesto / maquina',
-                hintText: 'p.ej. M 22',
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _puesto,
+                decoration: const InputDecoration(
+                  labelText: 'Puesto / maquina',
+                  hintText: 'p.ej. M 22',
+                ),
               ),
-            ),
-            // Pauta y calentamiento solo aplican a fuerza.
-            if (!_kind.isCardio) ...[
               const SizedBox(height: 8),
               TextFormField(
                 controller: _pauta,

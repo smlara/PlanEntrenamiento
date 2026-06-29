@@ -6,7 +6,6 @@ import '../models.dart';
 import '../repository.dart';
 import '../settings_controller.dart';
 import 'day_screen.dart';
-import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,15 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _days = repo.getDays();
   }
 
-  Future<void> _openSettings() async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-    );
-    if (changed == true && mounted) {
-      setState(_load);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,13 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Configuracion',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: _openSettings,
-          ),
-        ],
       ),
       body: FutureBuilder<List<WorkoutDay>>(
         future: _days,
