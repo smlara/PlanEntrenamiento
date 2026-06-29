@@ -100,6 +100,35 @@ class WorkoutRepository {
     );
   }
 
+  /// Duplica un ejercicio dentro de su mismo dia (al final). No copia el
+  /// historial de series; solo la "plantilla" (nombre, puesto, pauta...).
+  Future<int> duplicateExercise(int id) async {
+    final ex = await getExercise(id);
+    return addExercise(
+      ex.dayId,
+      name: ex.name,
+      puesto: ex.puesto,
+      pauta: ex.pauta,
+      isWarmup: ex.isWarmup,
+    );
+  }
+
+  /// Copia todos los ejercicios de [fromDayId] al final de [toDayId].
+  /// No copia el historial de series. Devuelve cuantos ejercicios copio.
+  Future<int> copyExercisesToDay(int fromDayId, int toDayId) async {
+    final list = await getExercises(fromDayId);
+    for (final ex in list) {
+      await addExercise(
+        toDayId,
+        name: ex.name,
+        puesto: ex.puesto,
+        pauta: ex.pauta,
+        isWarmup: ex.isWarmup,
+      );
+    }
+    return list.length;
+  }
+
   /// Borra un ejercicio y todo su historial de series.
   Future<void> deleteExercise(int id) async {
     final db = await _db;

@@ -56,6 +56,15 @@ class _DayScreenState extends State<DayScreen> {
     _reload();
   }
 
+  Future<void> _duplicateExercise(Exercise ex) async {
+    await _repo.duplicateExercise(ex.id);
+    _reload();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Duplicado "${ex.name}"')),
+    );
+  }
+
   Future<void> _deleteExercise(Exercise ex) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -78,39 +87,66 @@ class _DayScreenState extends State<DayScreen> {
     _reload();
   }
 
-  void _showOptions(Exercise ex) {
-    showModalBottomSheet<void>(
+  /// Copia todos los ejercicios de este dia al dia que elija el usuario.
+  Future<void> _copyExercisesToAnotherDay() async {
+    final exercises = await _exercises;
+    if (!mounted) return;
+    if (exercises.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Este dia no tiene ejercicios que copiar')),
+      );
+      return;
+    }
+    final days = await _repo.getDays();
+    if (!mounted) return;
+    final targets = days.where((d) => d.id != widget.day.id).toList();
+
+    final target = await showDialog<WorkoutDay>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Editar'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _editExercise(ex);
-              },
+      builder: (ctx) => SimpleDialog(
+        title: Text('Copiar ${exercises.length} ejercicios a...'),
+        children: [
+          for (final d in targets)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, d),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(d.active
+                        ? Icons.fitness_center
+                        : Icons.weekend_outlined),
+                    const SizedBox(width: 12),
+                    Text(d.name, style: const TextStyle(fontSize: 16)),
+                  ],
+                ),
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('Borrar'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _deleteExercise(ex);
-              },
-            ),
-          ],
-        ),
+        ],
       ),
+    );
+    if (target == null) return;
+
+    final count = await _repo.copyExercisesToDay(widget.day.id, target.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Copiados $count ejercicios a ${target.name}')),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.day.name)),
+      appBar: AppBar(
+        title: Text(widget.day.name),
+        actions: [
+          IconButton(
+            tooltip: 'Copiar ejercicios a otro dia',
+            icon: const Icon(Icons.copy_all_outlined),
+            onPressed: _copyExercisesToAnotherDay,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addExercise,
         icon: const Icon(Icons.add),
@@ -132,7 +168,9 @@ class _DayScreenState extends State<DayScreen> {
             separatorBuilder: (_, _) => const SizedBox(height: 4),
             itemBuilder: (context, i) => _ExerciseTile(
               exercise: exercises[i],
-              onOptions: () => _showOptions(exercises[i]),
+              onDuplicate: () => _duplicateExercise(exercises[i]),
+              onEdit: () => _editExercise(exercises[i]),
+              onDelete: () => _deleteExercise(exercises[i]),
             ),
           );
         },
@@ -171,9 +209,43 @@ class _EmptyDay extends StatelessWidget {
 }
 
 class _ExerciseTile extends StatelessWidget {
-  const _ExerciseTile({required this.exercise, required this.onOptions});
+  const _ExerciseTile({
+    required this.exercise,
+    required this.onDuplicate,
+    required this.onEdit,
+    required this.onDelete,
+  });
   final Exercise exercise;
-  final VoidCallback onOptions;
+  final VoidCallback onDuplicate;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  Widget _actions(ColorScheme scheme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'Duplicar',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.content_copy_outlined),
+          onPressed: onDuplicate,
+        ),
+        IconButton(
+          tooltip: 'Editar',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: onEdit,
+        ),
+        IconButton(
+          tooltip: 'Borrar',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.delete_outline),
+          color: scheme.error,
+          onPressed: onDelete,
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -183,13 +255,11 @@ class _ExerciseTile extends StatelessWidget {
       return Card(
         color: scheme.surfaceContainerHighest,
         child: ListTile(
+          contentPadding: const EdgeInsets.only(left: 16, right: 4),
           leading: Icon(Icons.directions_run, color: scheme.primary),
           title: Text(exercise.name),
           subtitle: const Text('Calentamiento'),
-          trailing: IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: onOptions,
-          ),
+          trailing: _actions(scheme),
         ),
       );
     }
@@ -212,11 +282,7 @@ class _ExerciseTile extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 8),
                 child: Wrap(spacing: 8, runSpacing: 4, children: chips),
               ),
-        trailing: IconButton(
-          icon: const Icon(Icons.more_vert),
-          onPressed: onOptions,
-        ),
-        onLongPress: onOptions,
+        trailing: _actions(scheme),
         onTap: () {
           Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => ExerciseLogScreen(exercise: exercise),
