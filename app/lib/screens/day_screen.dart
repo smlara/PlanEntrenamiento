@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -17,7 +18,11 @@ class DayScreen extends StatefulWidget {
 class _DayScreenState extends State<DayScreen> {
   late WorkoutRepository _repo;
   List<Exercise> _items = [];
+  // Series registradas hoy por ejercicio (id -> nº de series), para las marcas.
+  Map<int, int> _todayCounts = {};
   bool _loading = true;
+
+  String get _todayKey => DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   @override
   void initState() {
@@ -28,11 +33,30 @@ class _DayScreenState extends State<DayScreen> {
 
   Future<void> _reload() async {
     final items = await _repo.getExercises(widget.day.id);
+    final counts = await _repo.getSetCountsForDay(widget.day.id, _todayKey);
     if (!mounted) return;
     setState(() {
       _items = items;
+      _todayCounts = counts;
       _loading = false;
     });
+  }
+
+  /// Solo refresca las marcas de series hechas hoy (al volver del registro).
+  Future<void> _reloadCounts() async {
+    final counts = await _repo.getSetCountsForDay(widget.day.id, _todayKey);
+    if (!mounted) return;
+    setState(() => _todayCounts = counts);
+  }
+
+  /// Abre el registro del ejercicio y, al volver, refresca las marcas.
+  Future<void> _openExercise(Exercise ex) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ex.isCardio
+          ? CardioLogScreen(exercise: ex)
+          : ExerciseLogScreen(exercise: ex),
+    ));
+    await _reloadCounts();
   }
 
   // onReorderItem ya entrega newIndex ajustado (tras quitar el elemento movido).
@@ -181,10 +205,12 @@ class _DayScreenState extends State<DayScreen> {
                     return _ExerciseTile(
                       key: ValueKey(ex.id),
                       exercise: ex,
+                      doneToday: _todayCounts[ex.id] ?? 0,
                       dragHandle: ReorderableDragStartListener(
                         index: i,
                         child: const Icon(Icons.drag_handle),
                       ),
+                      onOpen: () => _openExercise(ex),
                       onDuplicate: () => _duplicateExercise(ex),
                       onEdit: () => _editExercise(ex),
                       onDelete: () => _deleteExercise(ex),
@@ -228,16 +254,27 @@ class _ExerciseTile extends StatelessWidget {
   const _ExerciseTile({
     super.key,
     required this.exercise,
+    required this.doneToday,
     required this.dragHandle,
+    required this.onOpen,
     required this.onDuplicate,
     required this.onEdit,
     required this.onDelete,
   });
   final Exercise exercise;
+  final int doneToday; // series registradas hoy (para las marcas)
   final Widget dragHandle;
+  final VoidCallback onOpen;
   final VoidCallback onDuplicate;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  /// Series prescritas en la pauta, p.ej. "3X15" -> 3. null si no se reconoce.
+  static int? _pautaSets(String? pauta) {
+    if (pauta == null || pauta.trim().isEmpty) return null;
+    final m = RegExp(r'(\d+)\s*[xX]').firstMatch(pauta);
+    return m != null ? int.tryParse(m.group(1)!) : null;
+  }
 
   Widget _actions(ColorScheme scheme) {
     return Row(
@@ -317,27 +354,73 @@ class _ExerciseTile extends StatelessWidget {
         ),
     ];
 
+    // Marcas de series hechas hoy (solo en fuerza). Se muestran si hay alguna
+    // serie hecha o si la pauta indica cuantas hay que hacer.
+    final targetSets = exercise.isCardio ? null : _pautaSets(exercise.pauta);
+    final showChecks =
+        !exercise.isCardio && (doneToday > 0 || targetSets != null);
+
     return Card(
       child: ListTile(
         contentPadding: const EdgeInsets.only(left: 8, right: 4),
         leading: dragHandle,
         title: Text(exercise.name,
             style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: chips.isEmpty
+        subtitle: (chips.isEmpty && !showChecks)
             ? null
             : Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Wrap(spacing: 8, runSpacing: 4, children: chips),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (chips.isNotEmpty)
+                      Wrap(spacing: 8, runSpacing: 4, children: chips),
+                    if (showChecks) ...[
+                      if (chips.isNotEmpty) const SizedBox(height: 8),
+                      _SetChecks(done: doneToday, target: targetSets),
+                    ],
+                  ],
+                ),
               ),
         trailing: _actions(scheme),
-        onTap: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => exercise.isCardio
-                ? CardioLogScreen(exercise: exercise)
-                : ExerciseLogScreen(exercise: exercise),
-          ));
-        },
+        onTap: onOpen,
       ),
+    );
+  }
+}
+
+/// Fila de marcas de series hechas hoy: un check relleno por serie hecha y un
+/// circulo vacio por cada serie pendiente (segun la pauta). Si no hay pauta,
+/// solo muestra los checks de lo hecho.
+class _SetChecks extends StatelessWidget {
+  const _SetChecks({required this.done, this.target});
+  final int done;
+  final int? target;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final total = (target != null && target! > done) ? target! : done;
+    if (total == 0) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 2,
+      runSpacing: 2,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = 0; i < total; i++)
+          Icon(
+            i < done ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 20,
+            color: i < done ? scheme.primary : scheme.outlineVariant,
+          ),
+        Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: Text(
+            target != null ? '$done/$target series' : '$done series',
+            style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+          ),
+        ),
+      ],
     );
   }
 }

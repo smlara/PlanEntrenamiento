@@ -179,6 +179,23 @@ class WorkoutRepository {
     await db.delete('exercises', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Numero de series registradas en [date] por cada ejercicio del dia [dayId].
+  /// Clave = id de ejercicio, valor = nº de series ese dia (0 si ninguna). Sirve
+  /// para mostrar en la lista del dia las marcas de series hechas hoy.
+  Future<Map<int, int>> getSetCountsForDay(int dayId, String date) async {
+    final db = await _db;
+    final rows = await db.rawQuery('''
+      SELECT e.id AS ex_id, COUNT(s.id) AS n
+      FROM exercises e
+      LEFT JOIN set_entries s ON s.exercise_id = e.id AND s.date = ?
+      WHERE e.day_id = ?
+      GROUP BY e.id
+    ''', [date, dayId]);
+    return {
+      for (final r in rows) (r['ex_id'] as int): (r['n'] as int),
+    };
+  }
+
   /// Series de un ejercicio en una fecha concreta, ordenadas por numero de serie.
   Future<List<SetEntry>> getSetsForDate(int exerciseId, String date) async {
     final db = await _db;
