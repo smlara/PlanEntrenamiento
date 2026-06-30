@@ -28,6 +28,12 @@ class AppDatabase {
   /// `settings`. Reseed completo (no se conservan datos).
   static const int _version = 6;
 
+  /// Version del esquema de BD, expuesta para validar copias de seguridad.
+  /// Como el export vuelca las filas crudas de las tablas, el JSON queda
+  /// acoplado a este esquema; el import la usa para rechazar copias creadas
+  /// por una version mas nueva de la app.
+  static const int currentSchemaVersion = _version;
+
   Database? _db;
 
   OpenDatabaseOptions get _options => OpenDatabaseOptions(

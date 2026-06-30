@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
+import '../pwa_update.dart';
 import '../repository.dart';
 import '../settings_controller.dart';
 
@@ -115,6 +116,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Fuerza la actualizacion de la PWA: limpia la cache del service worker y
+  /// recarga. Util en iOS, donde la app puede quedarse en una version antigua.
+  Future<void> _forceUpdate() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Buscar actualizaciones'),
+        content: const Text(
+            'La app limpiara la cache y se recargara para descargar la ultima '
+            'version. Tus datos NO se pierden.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Actualizar')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    _snack('Actualizando...');
+    try {
+      await forceAppUpdate(); // recarga la pagina; lo de abajo ya no se ejecuta
+    } catch (e) {
+      _snack('No se pudo actualizar: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -206,6 +236,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+            if (canForceUpdate) ...[
+              const SizedBox(height: 24),
+              _SectionTitle('Actualizacion',
+                  icon: Icons.system_update_alt_outlined),
+              const SizedBox(height: 4),
+              Text(
+                'Si la app no muestra los ultimos cambios (tipico en iPhone), '
+                'fuerza la actualizacion: limpia la cache y recarga para '
+                'descargar la ultima version. Tus datos no se pierden.',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.refresh),
+                  title: const Text('Buscar actualizaciones'),
+                  subtitle: const Text('Limpia la cache y recarga la app'),
+                  onTap: _forceUpdate,
+                ),
+              ),
+            ],
           ],
         ),
     );

@@ -6,6 +6,24 @@ import 'package:sqflite/sqflite.dart';
 import 'database.dart';
 import 'models.dart';
 
+/// Version del FORMATO de la copia de seguridad (la ESTRUCTURA del JSON),
+/// independiente de la version del esquema de BD (`schema_version`). Subela
+/// solo si cambia la forma del JSON de tal modo que un import antiguo no la
+/// entienda; los cambios de columnas de las tablas los cubre `schema_version`.
+///
+/// Historia: v1 = formato antiguo (solo `set_entries`, sin clave `version`).
+/// v4 = formato completo (days/exercises/set_entries/settings/goals). Los
+/// numeros 2 y 3 no llegaron a publicarse como formato propio.
+const int kBackupFormatVersion = 4;
+
+/// Error al restaurar una copia de seguridad (formato o version incompatible).
+class BackupException implements Exception {
+  BackupException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class WorkoutRepository {
   Future<Database> get _db async => AppDatabase.instance.database;
 
@@ -278,7 +296,11 @@ class WorkoutRepository {
   Future<Map<String, Object?>> exportData() async {
     final db = await _db;
     return {
-      'version': 4,
+      // Version del formato del JSON.
+      'version': kBackupFormatVersion,
+      // Version del esquema de BD con el que se genero (las filas son crudas,
+      // asi que el import necesita saber contra que esquema validarlas).
+      'schema_version': await db.getVersion(),
       'exported_at': DateTime.now().toIso8601String(),
       'days': await db.query('days'),
       'exercises': await db.query('exercises'),
@@ -288,56 +310,87 @@ class WorkoutRepository {
     };
   }
 
-  /// Restaura una copia de seguridad. Si el backup es del formato completo
-  /// (incluye `days`), REEMPLAZA todos los datos actuales. Si es del formato
-  /// antiguo (solo `set_entries`), los anade.
+  /// Restaura una copia de seguridad, validando antes su version.
+  ///
+  /// - Copia de un formato/esquema MAS NUEVO que esta app: se rechaza
+  ///   (lanza [BackupException]) para no corromper datos con columnas o
+  ///   estructura desconocidas.
+  /// - Formato completo (clave `version`/`days`): REEMPLAZA todos los datos.
+  ///   Una copia de un esquema mas antiguo es valida: las columnas que no
+  ///   trae se rellenan con sus valores por defecto al insertar.
+  /// - Formato antiguo (sin `version`, solo `set_entries`): se anaden las
+  ///   series a lo existente.
   Future<void> importData(Map<String, Object?> data) async {
     final db = await _db;
+
+    final formatVersion = (data['version'] as num?)?.toInt();
+    final schemaVersion = (data['schema_version'] as num?)?.toInt();
     final days = (data['days'] as List?)?.cast<Map<String, Object?>>();
 
-    if (days != null) {
-      final exercises =
-          (data['exercises'] as List? ?? []).cast<Map<String, Object?>>();
+    // Formato antiguo (v1): sin `version` y sin `days`, solo series sueltas.
+    if (formatVersion == null && days == null) {
       final entries =
-          (data['set_entries'] as List? ?? []).cast<Map<String, Object?>>();
-      final settings =
-          (data['settings'] as List? ?? []).cast<Map<String, Object?>>();
-      final goals =
-          (data['goals'] as List? ?? []).cast<Map<String, Object?>>();
-      await db.transaction((txn) async {
-        await txn.delete('goals');
-        await txn.delete('set_entries');
-        await txn.delete('exercises');
-        await txn.delete('days');
-        await txn.delete('settings');
-        final batch = txn.batch();
-        for (final r in days) {
-          batch.insert('days', r);
-        }
-        for (final r in exercises) {
-          batch.insert('exercises', r);
-        }
-        for (final r in entries) {
-          batch.insert('set_entries', r);
-        }
-        for (final r in settings) {
-          batch.insert('settings', r);
-        }
-        for (final r in goals) {
-          batch.insert('goals', r);
-        }
-        await batch.commit(noResult: true);
-      });
+          (data['set_entries'] as List?)?.cast<Map<String, Object?>>();
+      if (entries == null) {
+        throw BackupException('El archivo no es una copia de seguridad valida.');
+      }
+      final batch = db.batch();
+      for (final e in entries) {
+        final m = Map<String, Object?>.from(e)..remove('id');
+        batch.insert('set_entries', m);
+      }
+      await batch.commit(noResult: true);
       return;
     }
 
-    // Formato antiguo: solo series, se anaden.
-    final entries = (data['set_entries'] as List).cast<Map<String, Object?>>();
-    final batch = db.batch();
-    for (final e in entries) {
-      final m = Map<String, Object?>.from(e)..remove('id');
-      batch.insert('set_entries', m);
+    // No restaurar copias creadas por una version mas nueva de la app.
+    if (formatVersion != null && formatVersion > kBackupFormatVersion) {
+      throw BackupException(
+          'Esta copia se creo con una version mas nueva de la app '
+          '(formato $formatVersion). Actualiza la app para restaurarla.');
     }
-    await batch.commit(noResult: true);
+    if (schemaVersion != null &&
+        schemaVersion > AppDatabase.currentSchemaVersion) {
+      throw BackupException(
+          'Esta copia se creo con una version mas nueva de la app '
+          '(BD v$schemaVersion). Actualiza la app para restaurarla.');
+    }
+
+    if (days == null) {
+      throw BackupException('La copia no contiene datos de dias.');
+    }
+
+    // Formato completo: reemplaza todos los datos actuales.
+    final exercises =
+        (data['exercises'] as List? ?? []).cast<Map<String, Object?>>();
+    final entries =
+        (data['set_entries'] as List? ?? []).cast<Map<String, Object?>>();
+    final settings =
+        (data['settings'] as List? ?? []).cast<Map<String, Object?>>();
+    final goals = (data['goals'] as List? ?? []).cast<Map<String, Object?>>();
+    await db.transaction((txn) async {
+      await txn.delete('goals');
+      await txn.delete('set_entries');
+      await txn.delete('exercises');
+      await txn.delete('days');
+      await txn.delete('settings');
+      final batch = txn.batch();
+      for (final r in days) {
+        batch.insert('days', r);
+      }
+      for (final r in exercises) {
+        batch.insert('exercises', r);
+      }
+      for (final r in entries) {
+        batch.insert('set_entries', r);
+      }
+      for (final r in settings) {
+        batch.insert('settings', r);
+      }
+      for (final r in goals) {
+        batch.insert('goals', r);
+      }
+      await batch.commit(noResult: true);
+    });
   }
 }

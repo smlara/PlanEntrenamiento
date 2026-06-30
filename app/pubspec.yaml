@@ -53,6 +53,9 @@ dependencies:
   file_picker: ^8.1.6
   # Exportar copia: guarda/descarga el fichero en web, Android y escritorio
   file_saver: ^0.2.14
+  # Acceso a APIs del navegador (service worker / caches) para forzar la
+  # actualizacion de la PWA. Solo se usa en web (import condicional).
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
