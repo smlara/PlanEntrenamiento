@@ -95,15 +95,19 @@ class _ExerciseLogScreenState extends State<ExerciseLogScreen> {
     if (mounted) setState(() => _sessions = sessions);
   }
 
-  void _addRow() {
+  Future<void> _addRow() async {
     final lastWeight = _rows.isNotEmpty ? _rows.last.weight : null;
     final lastReps = _rows.isNotEmpty ? _rows.last.reps : null;
-    setState(() {
-      final row = _SetRow.empty(_rows.length + 1);
-      if (lastWeight != null) row.weightCtrl.text = _fmt(lastWeight);
-      if (lastReps != null) row.repsCtrl.text = '$lastReps';
-      _rows.add(row);
-    });
+    final row = _SetRow.empty(_rows.length + 1);
+    if (lastWeight != null) row.weightCtrl.text = _fmt(lastWeight);
+    if (lastReps != null) row.repsCtrl.text = '$lastReps';
+    setState(() => _rows.add(row));
+    // Persiste las series aun sin guardar. Los valores precargados se ponen por
+    // codigo y NO disparan onChanged, asi que sin esto no se guardarian hasta
+    // editar un campo (bug: solo se guardaba la serie tecleada).
+    for (final r in _rows) {
+      if (r.id == null) await _saveRow(r);
+    }
   }
 
   Future<void> _copyLastSession() async {
