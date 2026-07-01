@@ -206,12 +206,32 @@ class WorkoutRepository {
     return rows.map(SetEntry.fromMap).toList();
   }
 
+  /// Ids de todos los ejercicios "iguales" a [exerciseId]: mismo tipo y mismo
+  /// nombre (ignorando mayusculas/espacios). Un ejercicio que esta en varios
+  /// dias (p.ej. PRESS BANCA lunes y miercoles) comparte asi historico,
+  /// grafica, record y sugerencia de peso: el progreso se mide POR EJERCICIO,
+  /// no por dia. Nota: si se renombra en un dia, deja de vincularse.
+  Future<List<int>> linkedExerciseIds(int exerciseId) async {
+    final db = await _db;
+    final ex = await getExercise(exerciseId);
+    final rows = await db.rawQuery(
+      'SELECT id FROM exercises '
+      'WHERE kind = ? AND UPPER(TRIM(name)) = UPPER(TRIM(?))',
+      [ex.kind.dbValue, ex.name],
+    );
+    final ids = rows.map((r) => r['id'] as int).toList();
+    return ids.isEmpty ? [exerciseId] : ids;
+  }
+
   /// Todas las sesiones (fechas) de un ejercicio, mas reciente primero.
+  /// Agrega las series de ese ejercicio en TODOS los dias donde aparece.
   Future<List<SessionSummary>> getSessions(int exerciseId) async {
     final db = await _db;
+    final ids = await linkedExerciseIds(exerciseId);
+    final placeholders = List.filled(ids.length, '?').join(',');
     final rows = await db.query('set_entries',
-        where: 'exercise_id = ?',
-        whereArgs: [exerciseId],
+        where: 'exercise_id IN ($placeholders)',
+        whereArgs: ids,
         orderBy: 'date DESC, set_index ASC');
     final entries = rows.map(SetEntry.fromMap).toList();
     final byDate = <String, List<SetEntry>>{};
@@ -223,21 +243,27 @@ class WorkoutRepository {
         .toList();
   }
 
-  /// Ultima fecha registrada para precargar valores (sugerencia de peso).
+  /// Ultima sesion registrada para precargar valores (sugerencia de peso).
+  /// Mira el ejercicio en TODOS los dias donde aparece, asi el prefill usa el
+  /// ultimo valor puesto para ese ejercicio sea cual sea el dia.
   Future<List<SetEntry>?> getLastSession(int exerciseId, {String? before}) async {
     final db = await _db;
+    final ids = await linkedExerciseIds(exerciseId);
+    final placeholders = List.filled(ids.length, '?').join(',');
     final where = before == null
-        ? 'exercise_id = ?'
-        : 'exercise_id = ? AND date < ?';
-    final args = before == null ? [exerciseId] : [exerciseId, before];
+        ? 'exercise_id IN ($placeholders)'
+        : 'exercise_id IN ($placeholders) AND date < ?';
+    final args = before == null ? [...ids] : [...ids, before];
     final last = await db.query('set_entries',
-        columns: ['date'],
+        columns: ['exercise_id', 'date'],
         where: where,
         whereArgs: args,
         orderBy: 'date DESC',
         limit: 1);
     if (last.isEmpty) return null;
-    return getSetsForDate(exerciseId, last.first['date'] as String);
+    // Las series de esa fecha son de la fila (dia) que la registro.
+    return getSetsForDate(
+        last.first['exercise_id'] as int, last.first['date'] as String);
   }
 
   Future<int> upsertSet(SetEntry entry) async {
